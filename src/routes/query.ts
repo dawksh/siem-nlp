@@ -46,14 +46,14 @@ router.post('/query', async (req, res) => {
     contextManager.addMessage('user', query, siemQuery);
     contextManager.addMessage('assistant', analysis, siemQuery, result.events);
 
-    res.json({
+    return res.json({
       query: siemQuery,
       result,
       analysis,
       context: contextManager.getContextSummary(),
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
