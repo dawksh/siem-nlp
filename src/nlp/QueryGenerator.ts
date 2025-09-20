@@ -1,4 +1,4 @@
-import { SIEMQuery, SIEMEvent } from '../config/schema';
+import type { SIEMQuery, SIEMEvent } from '../config/schema';
 
 export class QueryGenerator {
   generateElasticsearchQuery(siemQuery: SIEMQuery): any {

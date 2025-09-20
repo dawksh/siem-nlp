@@ -1,20 +1,20 @@
-import { config } from '../config/settings';
-import type { NLPPrompt, SIEMQuery } from '../config/schema';
-import { PROMPT_TEMPLATES } from './PromptTemplates';
+import { config } from "../config/settings";
+import type { NLPPrompt, SIEMQuery } from "../config/schema";
+import { PROMPT_TEMPLATES } from "./PromptTemplates";
 
 export class NLPParser {
   private async callOpenAI(prompt: NLPPrompt): Promise<string> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${config.api.openai.apiKey}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.api.openai.apiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: config.api.openai.model,
         messages: [
-          { role: 'system', content: prompt.system },
-          { role: 'user', content: prompt.user },
+          { role: "system", content: prompt.system },
+          { role: "user", content: prompt.user },
         ],
         max_tokens: config.api.openai.maxTokens,
         temperature: 0.1,
@@ -30,23 +30,30 @@ export class NLPParser {
   }
 
   private async callGemini(prompt: NLPPrompt): Promise<string> {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.api.gemini.model}:generateContent?key=${config.api.gemini.apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${prompt.system}\n\n${prompt.user}`,
-          }],
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: config.api.openai.maxTokens,
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": config.api.gemini.apiKey,
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${prompt.system}\n\n${prompt.user}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Gemini API error: ${response.statusText}`);
@@ -63,19 +70,14 @@ export class NLPParser {
     };
 
     let response: string;
-    
-    if (config.api.openai.apiKey) {
-      response = await this.callOpenAI(prompt);
-    } else if (config.api.gemini.apiKey) {
-      response = await this.callGemini(prompt);
-    } else {
-      throw new Error('No LLM API key configured');
-    }
+
+    response = await this.callGemini(prompt);
+    const cleanResponse = response.replace("```json", "").replace("```", "");
 
     try {
-      return JSON.parse(response) as SIEMQuery;
+      return JSON.parse(cleanResponse) as SIEMQuery;
     } catch {
-      throw new Error('Failed to parse LLM response as SIEM query');
+      throw new Error("Failed to parse LLM response as SIEM query");
     }
   }
 
@@ -85,12 +87,12 @@ export class NLPParser {
       user: PROMPT_TEMPLATES.resultAnalysis(query, results),
     };
 
-    if (config.api.openai.apiKey) {
+    if (config.api.openai.apiKey && config.api.openai.apiKey !== "") {
       return await this.callOpenAI(prompt);
-    } else if (config.api.gemini.apiKey) {
+    } else if (config.api.gemini.apiKey && config.api.gemini.apiKey !== "") {
       return await this.callGemini(prompt);
     } else {
-      throw new Error('No LLM API key configured');
+      throw new Error("No LLM API key configured");
     }
   }
 }
