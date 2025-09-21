@@ -11,10 +11,19 @@ export const config = {
     },
   },
   elasticsearch: {
-    url: process.env.ELASTICSEARCH_URL || 'http://localhost:9200',
-    username: process.env.ELASTICSEARCH_USERNAME || '',
-    password: process.env.ELASTICSEARCH_PASSWORD || '',
-    index: process.env.ELASTICSEARCH_INDEX || 'siem-logs',
+    url: process.env.ELASTICSEARCH_URL || 'http://54.80.24.14:9200',
+    username: process.env.ELASTICSEARCH_USERNAME || 'elastic',
+    password: process.env.ELASTICSEARCH_PASSWORD || 'changeme',
+    apiKey: process.env.ELASTICSEARCH_API_KEY || '',
+    index: process.env.ELASTICSEARCH_INDEX || 'logs-siem',
+  },
+  kibana: {
+    host: process.env.KIBANA_HOST || 'http://kibana:5601',
+    username: process.env.KIBANA_USERNAME || 'kibana_system',
+    password: process.env.KIBANA_PASSWORD || 'kibana_password',
+  },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://redis:6379',
   },
   wazuh: {
     url: process.env.WAZUH_URL || 'http://localhost:55000',

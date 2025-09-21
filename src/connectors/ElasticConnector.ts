@@ -1,45 +1,31 @@
-import { config } from '../config/settings';
-import type { QueryResult } from '../config/schema';
+import axios, { type AxiosInstance } from "axios";
+import { config } from "../config/settings";
+import type { QueryResult } from "../config/schema";
 
 export class ElasticConnector {
-  private baseUrl: string;
-  private credentials?: string;
+  private client: AxiosInstance;
 
   constructor() {
-    this.baseUrl = config.elasticsearch.url;
-    if (config.elasticsearch.username && config.elasticsearch.password) {
-      this.credentials = btoa(`${config.elasticsearch.username}:${config.elasticsearch.password}`);
-    }
-  }
-
-  private async makeRequest(endpoint: string, body: any): Promise<any> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (this.credentials) {
-      headers['Authorization'] = `Basic ${this.credentials}`;
-    }
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+    this.client = axios.create({
+      baseURL: config.elasticsearch.url,
+      timeout: 60000,
+      auth: {
+        username: config.elasticsearch.username,
+        password: config.elasticsearch.password,
+      },
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Elasticsearch error: ${response.statusText}`);
-    }
-
-    return response.json();
   }
 
   async search(query: any): Promise<QueryResult> {
     const startTime = Date.now();
-    
+
     try {
-      const result = await this.makeRequest(`/${config.elasticsearch.index}/_search`, query);
-      
+      const response = await this.client.post(`/${config.elasticsearch.index}/_search`, query);
+      const result = response.data;
+
       const events = result.hits.hits.map((hit: any) => ({
         ...hit._source,
         _id: hit._id,
@@ -48,7 +34,10 @@ export class ElasticConnector {
 
       return {
         events,
-        total: result.hits.total.value,
+        total:
+          typeof result.hits.total === "number"
+            ? result.hits.total
+            : result.hits.total?.value || 0,
         query_time: Date.now() - startTime,
       };
     } catch (error) {
@@ -56,25 +45,15 @@ export class ElasticConnector {
         events: [],
         total: 0,
         query_time: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   async getIndices(): Promise<string[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/_cat/indices?format=json`, {
-        headers: this.credentials ? {
-          'Authorization': `Basic ${this.credentials}`,
-        } : {},
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch indices: ${response.statusText}`);
-      }
-
-      const indices = await response.json();
-      return indices.map((index: any) => index.index);
+      const response = await this.client.get('/_cat/indices?format=json');
+      return response.data.map((index: any) => index.index);
     } catch {
       return [];
     }
@@ -82,13 +61,11 @@ export class ElasticConnector {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/_cluster/health`, {
-        headers: this.credentials ? {
-          'Authorization': `Basic ${this.credentials}`,
-        } : {},
-      });
-      return response.ok;
-    } catch {
+      await this.client.get('/_cluster/stats');
+      console.log("✅ Elasticsearch connection successful");
+      return true;
+    } catch (error) {
+      console.error("❌ Elasticsearch connection failed:", error);
       return false;
     }
   }
