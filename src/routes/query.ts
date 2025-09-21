@@ -27,7 +27,6 @@ router.post('/query', async (req, res) => {
       const esQuery = queryGenerator.generateElasticsearchQuery(siemQuery);
       console.log('Generated ES Query:', JSON.stringify(esQuery, null, 2))
       const rawResult = await elasticConnector.search(esQuery);
-      console.log('ES Response:', rawResult)
       result = {
         ...rawResult,
         events: queryGenerator.normalizeResults(rawResult.events, 'elasticsearch'),
@@ -54,6 +53,9 @@ router.post('/query', async (req, res) => {
       result,
       analysis: cleanAnalysis,
       context: contextManager.getContextSummary(),
+      debug: {
+        esQuery: source === 'elasticsearch' ? queryGenerator.generateElasticsearchQuery(siemQuery) : null
+      }
     });
   } catch (error) {
     return res.status(500).json({
