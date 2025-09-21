@@ -33,16 +33,24 @@ generateElasticsearchQuery(siemQuery: SIEMQuery): any {
     shouldQueries.push({ terms: { 'event.type': actualQuery.event_types } });
   }
 
-  // Handle filters from the prompt template
+  // Handle filters from the prompt template (avoid duplicates)
   if (actualQuery?.filters && Array.isArray(actualQuery.filters)) {
+    const addedFilters = new Set<string>();
+    
     actualQuery.filters.forEach((filter: any) => {
       if (filter.field && filter.value) {
-        if (filter.operator === 'equals') {
-          mustQueries.push({ term: { [filter.field]: filter.value } });
-        } else if (filter.operator === 'in') {
-          mustQueries.push({ terms: { [filter.field]: Array.isArray(filter.value) ? filter.value : [filter.value] } });
-        } else if (filter.operator === 'range') {
-          mustQueries.push({ range: { [filter.field]: filter.value } });
+        const filterKey = `${filter.field}:${filter.value}`;
+        
+        if (!addedFilters.has(filterKey)) {
+          addedFilters.add(filterKey);
+          
+          if (filter.operator === 'equals') {
+            mustQueries.push({ term: { [filter.field]: filter.value } });
+          } else if (filter.operator === 'in') {
+            mustQueries.push({ terms: { [filter.field]: Array.isArray(filter.value) ? filter.value : [filter.value] } });
+          } else if (filter.operator === 'range') {
+            mustQueries.push({ range: { [filter.field]: filter.value } });
+          }
         }
       }
     });
@@ -234,6 +242,7 @@ generateElasticsearchQuery(siemQuery: SIEMQuery): any {
   private convertKQLToElasticsearch(kql: string): any {
     try {
       const mustQueries: any[] = [];
+      const addedTerms = new Set<string>();
       
       // Handle simple field comparisons
       const fieldPatterns = [
@@ -250,11 +259,15 @@ generateElasticsearchQuery(siemQuery: SIEMQuery): any {
       fieldPatterns.forEach(({ pattern, field }) => {
         let match;
         while ((match = pattern.exec(kql)) !== null) {
-          mustQueries.push({
-            term: {
-              [field]: match[1]
-            }
-          });
+          const termKey = `${field}:${match[1]}`;
+          if (!addedTerms.has(termKey)) {
+            addedTerms.add(termKey);
+            mustQueries.push({
+              term: {
+                [field]: match[1]
+              }
+            });
+          }
         }
       });
 
