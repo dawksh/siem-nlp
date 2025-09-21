@@ -5,61 +5,123 @@ export class QueryGenerator {
     const mustQueries: any[] = [];
     const shouldQueries: any[] = [];
 
-    if (siemQuery.query) {
+    if (siemQuery.query?.description) {
       mustQueries.push({
         multi_match: {
-          query: siemQuery.query,
-          fields: ['description', 'event_type', 'source', 'raw_log'],
+          query: siemQuery.query.description,
+          fields: ['description', 'event_type', 'source', 'raw_log', 'message', 'log'],
           type: 'best_fields',
         },
       });
     }
 
-    Object.entries(siemQuery.filters).forEach(([field, value]) => {
-      if (Array.isArray(value)) {
-        shouldQueries.push({
-          terms: { [field]: value },
-        });
-      } else {
-        mustQueries.push({
-          term: { [field]: value },
-        });
+    if (siemQuery.query?.event_types) {
+      shouldQueries.push({
+        terms: { event_type: siemQuery.query.event_types },
+      });
+    }
+
+    if (siemQuery.query?.data_sources) {
+      shouldQueries.push({
+        terms: { source: siemQuery.query.data_sources },
+      });
+    }
+
+    if (siemQuery.filters) {
+      Object.entries(siemQuery.filters).forEach(([field, value]) => {
+        if (Array.isArray(value)) {
+          shouldQueries.push({
+            terms: { [field]: value },
+          });
+        } else {
+          mustQueries.push({
+            term: { [field]: value },
+          });
+        }
+      });
+    }
+
+    const timeRange = siemQuery.query?.time_range || siemQuery.time_range;
+    
+    // Try different timestamp field names that might exist
+    const timestampFields = ['@timestamp', 'timestamp', 'date', 'time', 'created_at', 'updated_at'];
+    
+    // If no queries are specified, use match_all
+    if (mustQueries.length === 0 && shouldQueries.length === 0) {
+      const query: any = {
+        match_all: {}
+      };
+
+      if (timeRange) {
+        const timeFilter = timestampFields.map(field => ({
+          range: {
+            [field]: {
+              gte: timeRange.start || timeRange[0],
+              lte: timeRange.end || timeRange[1],
+            },
+          },
+        }));
+
+        return {
+          query: {
+            bool: {
+              must: [query],
+              should: timeFilter,
+              minimum_should_match: 1,
+            },
+          },
+          size: siemQuery.limit || 100,
+        };
       }
-    });
+
+      return {
+        query,
+        size: siemQuery.limit || 100,
+      };
+    }
 
     const query: any = {
       bool: {
-        must: mustQueries,
-        filter: [
-          {
-            range: {
-              timestamp: {
-                gte: siemQuery.time_range.start,
-                lte: siemQuery.time_range.end,
-              },
-            },
-          },
-        ],
+        must: mustQueries.length > 0 ? mustQueries : [{ match_all: {} }],
       },
     };
 
-    if (shouldQueries.length > 0) {
-      query.bool.should = shouldQueries;
+    if (timeRange) {
+      const timeFilter = timestampFields.map(field => ({
+        range: {
+          [field]: {
+            gte: timeRange.start || timeRange[0],
+            lte: timeRange.end || timeRange[1],
+          },
+        },
+      }));
+      
+      if (!query.bool.should) {
+        query.bool.should = [];
+      }
+      query.bool.should.push(...timeFilter);
       query.bool.minimum_should_match = 1;
+    }
+
+    if (shouldQueries.length > 0) {
+      if (!query.bool.should) {
+        query.bool.should = [];
+      }
+      query.bool.should.push(...shouldQueries);
+      query.bool.minimum_should_match = (query.bool.minimum_should_match || 0) + 1;
     }
 
     return {
       query,
-      sort: [{ timestamp: { order: 'desc' } }],
       size: siemQuery.limit || 100,
     };
   }
 
   generateWazuhQuery(siemQuery: SIEMQuery): any {
     return {
-      query: siemQuery.query,
+      query: siemQuery.query?.description || siemQuery.query,
       filters: siemQuery.filters,
-      time_range: siemQuery.time_range,
+      time_range: siemQuery.query?.time_range || siemQuery.time_range,
       limit: siemQuery.limit || 100,
     };
   }

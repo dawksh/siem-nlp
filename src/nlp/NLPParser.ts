@@ -86,13 +86,6 @@ export class NLPParser {
       system: PROMPT_TEMPLATES.system,
       user: PROMPT_TEMPLATES.resultAnalysis(query, results),
     };
-
-    if (config.api.openai.apiKey && config.api.openai.apiKey !== "") {
-      return await this.callOpenAI(prompt);
-    } else if (config.api.gemini.apiKey && config.api.gemini.apiKey !== "") {
-      return await this.callGemini(prompt);
-    } else {
-      throw new Error("No LLM API key configured");
-    }
+    return await this.callGemini(prompt);
   }
 }

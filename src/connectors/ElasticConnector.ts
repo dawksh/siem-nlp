@@ -25,7 +25,6 @@ export class ElasticConnector {
     try {
       const response = await this.client.post(`/${config.elasticsearch.index}/_search`, query);
       const result = response.data;
-
       const events = result.hits.hits.map((hit: any) => ({
         ...hit._source,
         _id: hit._id,
@@ -40,12 +39,21 @@ export class ElasticConnector {
             : result.hits.total?.value || 0,
         query_time: Date.now() - startTime,
       };
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Elasticsearch search error:', error);
+      let errorMessage = "Unknown error";
+      
+      if (error?.response?.data?.error) {
+        errorMessage = `Elasticsearch error: ${JSON.stringify(error.response.data.error)}`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       return {
         events: [],
         total: 0,
         query_time: Date.now() - startTime,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       };
     }
   }
@@ -56,6 +64,16 @@ export class ElasticConnector {
       return response.data.map((index: any) => index.index);
     } catch {
       return [];
+    }
+  }
+
+  async getIndexMapping(indexName: string): Promise<any> {
+    try {
+      const response = await this.client.get(`/${indexName}/_mapping`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get index mapping:', error);
+      return null;
     }
   }
 

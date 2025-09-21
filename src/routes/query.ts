@@ -25,7 +25,9 @@ router.post('/query', async (req, res) => {
     let result;
     if (source === 'elasticsearch') {
       const esQuery = queryGenerator.generateElasticsearchQuery(siemQuery);
+      console.log('Generated ES Query:', JSON.stringify(esQuery, null, 2))
       const rawResult = await elasticConnector.search(esQuery);
+      console.log('ES Response:', rawResult)
       result = {
         ...rawResult,
         events: queryGenerator.normalizeResults(rawResult.events, 'elasticsearch'),
@@ -42,6 +44,7 @@ router.post('/query', async (req, res) => {
     }
 
     const analysis = await nlpParser.analyzeResults(query, result.events);
+    const cleanAnalysis = analysis.replace("```json", "").replace("```", "");
     
     contextManager.addMessage('user', query, siemQuery);
     contextManager.addMessage('assistant', analysis, siemQuery, result.events);
@@ -49,7 +52,7 @@ router.post('/query', async (req, res) => {
     return res.json({
       query: siemQuery,
       result,
-      analysis,
+      analysis: cleanAnalysis,
       context: contextManager.getContextSummary(),
     });
   } catch (error) {
@@ -78,6 +81,15 @@ router.get('/health', async (req, res) => {
     wazuh: wazuhHealth,
     status: elasticHealth || wazuhHealth ? 'healthy' : 'unhealthy',
   });
+});
+
+router.get('/debug/mapping', async (req, res) => {
+  try {
+    const mapping = await elasticConnector.getIndexMapping('logs-siem');
+    res.json({ mapping });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get mapping' });
+  }
 });
 
 export default router;

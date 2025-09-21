@@ -12,9 +12,19 @@ export interface SIEMEvent {
 }
 
 export interface SIEMQuery {
-  query: string;
-  filters: Record<string, any>;
-  time_range: {
+  query?: {
+    description: string;
+    time_range: any;
+    event_types?: string[];
+    data_sources?: string[];
+    filters?: any[];
+    aggregation?: any;
+    kql?: string;
+    optimization_notes?: string[];
+    security_implications?: string[];
+  };
+  filters?: Record<string, any>;
+  time_range?: {
     start: string;
     end: string;
   };
