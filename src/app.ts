@@ -32,8 +32,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const startServer = () => {
-  app.listen(config.server.port, config.server.host, () => {
-    console.log(`SIEM NLP Layer running on http://${config.server.host}:${config.server.port}`);
+  app.listen(config.server.port,() => {
+    console.log(`SIEM NLP Layer running on PORT: ${config.server.port}`);
   });
 };
 
