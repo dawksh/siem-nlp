@@ -61,7 +61,7 @@ Return a JSON object with this structure:
   "siemQuery": {
     "query": {
       "description": "Short natural language description of what the query does",
-      "time_range": { "start": "now-7d", "end": "now" },
+      "time_range": { "start": "now-30d", "end": "now" },
       "event_types": ["authentication", "process", "malware"],
       "data_sources": ["logs-siem"],
       "filters": [

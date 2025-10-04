@@ -162,14 +162,14 @@ generateElasticsearchQuery(siemQuery: SIEMQuery): any {
         const sourceData = result._source || result;
         return {
           timestamp: sourceData['@timestamp'] || new Date().toISOString(),
-          source: sourceData.host?.name || 'unknown',
-          event_type: sourceData.event?.type || 'unknown',
-          severity: this.mapElasticsearchSeverity(sourceData.event?.severity || 3),
-          description: sourceData.event?.action || sourceData.event?.type || '',
-          user: sourceData.user?.name,
-          ip_address: sourceData.source?.ip || sourceData.destination?.ip,
-          hostname: sourceData.host?.name,
-          process: sourceData.process?.name,
+          source: sourceData['host.name'] || sourceData.host?.name || 'unknown',
+          event_type: sourceData['event.type'] || sourceData.event?.type || 'unknown',
+          severity: this.mapElasticsearchSeverity(sourceData['event.severity'] || sourceData.event?.severity || 3),
+          description: sourceData['event.action'] || sourceData.event?.action || sourceData['event.type'] || sourceData.event?.type || '',
+          user: sourceData['user.name'] || sourceData.user?.name,
+          ip_address: sourceData['source.ip'] || sourceData.source?.ip || sourceData['destination.ip'] || sourceData.destination?.ip,
+          hostname: sourceData['host.name'] || sourceData.host?.name,
+          process: sourceData['process.name'] || sourceData.process?.name,
           raw_log: JSON.stringify(sourceData),
         };
       } else {
@@ -235,8 +235,8 @@ generateElasticsearchQuery(siemQuery: SIEMQuery): any {
       return timeStr;
     }
     
-    // Default to 7 days ago for backward compatibility
-    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    // Default to 30 days ago to ensure we capture more historical data
+    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
   }
 
   private convertKQLToElasticsearch(kql: string): any {
